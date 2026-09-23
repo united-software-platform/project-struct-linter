@@ -1,0 +1,24 @@
+# Конфигурация golangci-lint (schema v2) для линтера структуры проекта.
+# Набор линтеров удерживает стиль, именование, безопасность, простоту и модернизацию кода
+# (GO-002, GO-004, GO-008, GO-009, GO-010, GO-017).
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+    - gocritic
+  exclusions:
+    rules:
+      # В тестах допустимы табличные конструкции и русскоязычные имена тестов.
+      - path: _test\.go
+        linters:
+          - unparam

@@ -1,0 +1,60 @@
+# Курируемый эталон структуры Go-проекта (go-standard 1.0.0).
+#
+# Данные, а не код: правила выражены полями и валидируются схемой template.schema.json перед
+# применением. Калибровка — testdata/clean/ даёт вердикт ok по этому эталону.
+schema_version: "1.0.0"
+id: go-standard
+version: "1.0.0"
+language: go
+
+# Маркеры авто-подбора: если все присутствуют, эталон подходит проекту.
+detect:
+  - go.mod
+
+# Обязательные пути.
+required:
+  - name: go-mod
+    kind: file
+    match: exact
+    pattern: go.mod
+    reason: модуль Go описывается файлом go.mod в корне проекта
+  - name: cmd-dir
+    kind: dir
+    match: exact
+    pattern: cmd
+    reason: точки входа приложения размещаются в каталоге cmd
+  - name: cmd-entrypoint
+    kind: file
+    match: glob
+    pattern: cmd/*/main.go
+    min: 1
+    reason: должна быть хотя бы одна точка входа cmd/<app>/main.go
+
+# Запрещённые пути.
+forbidden:
+  - name: no-tmp
+    kind: file
+    match: glob
+    pattern: "**/*.tmp"
+    reason: временные файлы .tmp не хранятся в репозитории
+  - name: no-bin-dir
+    kind: dir
+    match: exact
+    pattern: bin
+    reason: артефакты сборки не коммитятся в каталог bin
+
+# Правила именования.
+naming:
+  - name: go-file-snake-case
+    scope: "**/*.go"
+    kind: file
+    regex: "^[a-z0-9_]+\\.go$"
+    reason: имена Go-файлов записываются в нижнем регистре snake_case
+
+# Разметка слоёв по путям (без анализа графа импортов).
+layers:
+  - name: domain
+    selector: "**/domain/**"
+    allowed_paths:
+      - "internal/*/domain/**"
+    reason: доменные пакеты размещаются в internal/<module>/domain

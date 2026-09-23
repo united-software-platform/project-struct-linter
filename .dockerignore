@@ -1,0 +1,11 @@
+# Контекст сборки образа линтера: в него входят только исходники Go и данные, встраиваемые
+# через embed (schemas/, templates/). Всё остальное исключено, чтобы контекст был лёгким.
+.git
+.idea
+.claude
+.claude-accounts
+.ssh
+.env
+testdata
+openspec
+docs

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://united-software-platform/struct-linter/template.schema.json",
+  "title": "Эталон структуры проекта (template)",
+  "description": "Замкнутая схема курируемого эталона структуры: правила выражены полями данных.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "language"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "id": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "language": { "type": "string", "minLength": 1 },
+    "detect": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "required": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pathRule" }
+    },
+    "forbidden": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pathRule" }
+    },
+    "naming": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/namingRule" }
+    },
+    "layers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/layerRule" }
+    }
+  },
+  "$defs": {
+    "pathRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "match", "pattern", "reason"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["file", "dir"] },
+        "match": { "type": "string", "enum": ["exact", "glob", "regex"] },
+        "pattern": { "type": "string", "minLength": 1 },
+        "min": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "namingRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "scope", "regex", "reason"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "scope": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["file", "dir"] },
+        "regex": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "layerRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "selector", "allowed_paths", "reason"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "selector": { "type": "string", "minLength": 1 },
+        "allowed_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 .PHONY: help init init-host init-env init-dirs init-gitignore init-ssh-key init-ssh-config \
-	openspec-init
+	openspec-init struct-linter-build struct-linter-lint
 
 .DEFAULT_GOAL := help
 
@@ -140,3 +140,15 @@ openspec-init: ## Развернуть инструменты SDD: openspec init
 	mkdir -p "$$accounts/$$profile"
 	docker compose --profile claude run --rm -T claude \
 		openspec init --tools claude --language ru
+
+# Сборка образа линтера структуры. Образ самодостаточен: схемы и эталоны вкомпилированы
+# в бинарь через embed, данные на диске образу не нужны.
+struct-linter-build: ## Собрать образ линтера структуры проекта
+	docker build -t $${STRUCT_LINTER_IMAGE:-struct-linter:local} \
+		-f docker/struct-linter/Dockerfile .
+
+# Проверка структуры проекта линтером в контейнере. Аргументы задаёт ARGS, по умолчанию —
+# валидация текущего проекта по авто-подбору эталона. Код возврата линтера (0/1/2) обёртка
+# пробрасывает наружу без изменений.
+struct-linter-lint: ## Проверить структуру проекта линтером (ARGS='validate --template auto')
+	@sh tools/struct-linter/lint.sh $${ARGS:-validate --template auto}

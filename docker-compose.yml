@@ -34,3 +34,18 @@ services:
       # сам .env внутри контейнера пустой. compose читает его на хосте — маскировка не мешает
       - /dev/null:${PROJECT_DIR:-/app}/.env:ro
 
+  struct-linter:
+    # Линтер структуры проекта: одноразовый CLI в distroless-образе. Схемы и эталоны вкомпилированы
+    # в бинарь, поэтому образу не нужны ни данные на диске, ни сеть — он читает смонтированный
+    # проект только для чтения и завершается своим кодом возврата (0/1/2).
+    build:
+      context: .
+      dockerfile: docker/struct-linter/Dockerfile
+    image: ${STRUCT_LINTER_IMAGE:-struct-linter:local}
+    container_name: struct-linter
+    # Отдельный compose-профиль: `docker compose up` линтер не поднимает
+    profiles: ["lint"]
+    working_dir: /work
+    volumes:
+      - .:/work:ro                                                        # проект только для чтения
+

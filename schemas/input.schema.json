@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://united-software-platform/struct-linter/input.schema.json",
+  "title": "Вход команды валидации (input)",
+  "description": "Замкнутая схема входа: путь к проекту и выбор эталона. Слабой модели достаточно project и template.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "template"],
+  "properties": {
+    "project": { "type": "string", "minLength": 1 },
+    "template": { "type": "string", "minLength": 1 },
+    "template_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "format": { "type": "string", "enum": ["json", "text"] }
+  }
+}
