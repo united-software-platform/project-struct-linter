@@ -35,9 +35,11 @@ jobs:
       - name: Статический анализ (go vet)
         run: go vet ./...
 
-      # Конфигурация линтеров — .golangci.yml в корне репозитория.
+      # Конфигурация линтеров — .golangci.yml в корне репозитория (schema v2).
+      # Действие v7 устанавливает golangci-lint v2, понимающий эту схему; v6 ставил бы
+      # v1 и падал на ключах version/linters.default.
       - name: Линтеры (golangci-lint)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: latest
 
