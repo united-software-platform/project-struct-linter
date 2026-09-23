@@ -1,5 +1,10 @@
 # struct-linter — линтер структуры проекта
 
+[![Release](https://img.shields.io/github/v/release/united-software-platform/project-struct-linter?sort=semver)](https://github.com/united-software-platform/project-struct-linter/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/united-software-platform/project-struct-linter)](./go.mod)
+[![Container](https://img.shields.io/badge/ghcr.io-struct--linter-2496ed?logo=docker&logoColor=white)](https://github.com/united-software-platform/project-struct-linter/pkgs/container/project-struct-linter)
+[![SDD Kit](https://img.shields.io/badge/SDD%20Kit-v1.4.1-4c1)](./.sdd-kit-manifest.json)
+
 Детерминированный CLI-линтер: проверяет структуру проекта по курируемому эталону и возвращает
 машиночитаемый вердикт с однозначным кодом возврата. Контракт рассчитан на вызов даже слабой
 моделью — достаточно пути к проекту и идентификатора эталона.
@@ -16,6 +21,8 @@
 - [Формат эталона](#формат-эталона)
 - [Классы нарушений](#классы-нарушений)
 - [Разработка](#разработка)
+- [Разработка через SDD Kit](#разработка-через-sdd-kit)
+- [Версионирование и релизы](#версионирование-и-релизы)
 - [Ограничения](#ограничения)
 
 ---
@@ -191,6 +198,40 @@ golangci-lint run ./...  # набор линтеров (конфигурация
 - `internal/structlint/application` — чистое ядро проверки и сценарий валидации;
 - `internal/structlint/infrastructure` — обход ФС, репозиторий эталонов, страж схемы, CLI, JSON;
 - `cmd/struct-linter` — единственный composition root, где собирается граф зависимостей.
+
+---
+
+## Разработка через SDD Kit
+
+Проект ведётся с помощью SDD Kit (Spec-Driven Development Kit) — набора правил, шаблонов и
+инструментов, устанавливаемого в проект. Версия и состав установленного набора зафиксированы в
+[`.sdd-kit-manifest.json`](./.sdd-kit-manifest.json).
+
+- [`rules/`](./rules) — свод правил репозитория: документация, терминология, чистая архитектура,
+  CQRS, DDD, Docker, Git, Makefile, а также правила Go ([`rules/go-rules/`](./rules/go-rules),
+  `GO-001`..`GO-017`).
+- [`openspec/`](./openspec) — спеки способностей ([`openspec/specs/`](./openspec/specs)) и история
+  изменений в архиве: любое изменение поведения проходит цикл OpenSpec
+  (proposal → specs → design → tasks → apply → archive).
+- `CLAUDE.md` / `AGENTS.md` — правила для агента, подключающие свод `rules/` в контекст.
+
+Служебные цели набора и запуск агента описывает `make help`.
+
+---
+
+## Версионирование и релизы
+
+Версии — по SemVer. Версия сборки задаётся линковщиком и по умолчанию равна `dev`:
+
+```bash
+go build -ldflags "-X main.version=v1.0.0" -o struct-linter ./cmd/struct-linter
+./struct-linter version   # v1.0.0
+```
+
+Релиз публикуется от подписанного аннотированного тега `vX.Y.Z`; к релизу прикладываются бинарь(и)
+с контрольными суммами и образ контейнера в GHCR
+(`ghcr.io/united-software-platform/project-struct-linter:vX.Y.Z`). История изменений ведётся в
+[`CHANGELOG.md`](./CHANGELOG.md) по формату Keep a Changelog.
 
 ---
 
