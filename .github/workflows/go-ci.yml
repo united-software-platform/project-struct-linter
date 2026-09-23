@@ -1,0 +1,49 @@
+# Гейт качества Go: форматирование, статический анализ, линтеры, сборка и тесты.
+#
+# Тот же вердикт доступен локально (см. README, раздел «Разработка»): пайплайн ничего
+# не меняет в репозитории, только проверяет текущее состояние на PR и push в main.
+name: go-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality:
+    name: Форматирование, анализ, линтеры, тесты
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получение репозитория
+        uses: actions/checkout@v4
+
+      # Версия Go берётся из go.mod, а не задаётся строкой: два места версии разошлись бы молча.
+      - name: Установка Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      # gofmt печатает список неотформатированных файлов; непустой список — нарушение GO-001.
+      - name: Проверка форматирования (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || { echo "не отформатировано gofmt:"; echo "$unformatted"; exit 1; }
+
+      - name: Статический анализ (go vet)
+        run: go vet ./...
+
+      # Конфигурация линтеров — .golangci.yml в корне репозитория.
+      - name: Линтеры (golangci-lint)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: Сборка
+        run: go build ./...
+
+      # Детектор гонок обязателен (SEC-010): гонка в проверке может обходить логику.
+      - name: Тесты с детектором гонок
+        run: go test -race ./...

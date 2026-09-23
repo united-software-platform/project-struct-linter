@@ -1,0 +1,150 @@
+# Релиз линтера структуры проекта.
+#
+# Запускается только вручную: релиз — решение человека, а не следствие события репозитория
+# (GIT-015). Ручной запуск с явно заданным разрядом и есть это решение; отдельных подтверждений
+# внутри прогона поэтому нет. Разряд — единственный ввод.
+#
+# Один прогон делает всё разом: поднимает VERSION, коммитит «Релиз vX.Y.Z», ставит аннотированный
+# тег vX.Y.Z и публикует его, собирает кросс-платформенные бинарники с контрольными суммами,
+# создаёт GitHub Release и публикует версионированный образ в GHCR. Согласованность носителей —
+# по построению: состояния, где тег указывает на другой коммит или образ, не возникает.
+#
+# Сообщение релизного коммита не несёт кода и номера задачи — это именованное исключение GIT-021
+# (машинный релизный коммит), меняющий только файл версии.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Разряд версии
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+# Запись содержимого — для коммита VERSION, тега и GitHub Release; запись пакетов — для образа.
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Повышение версии, тег, бинарники, образ
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получение репозитория
+        uses: actions/checkout@v4
+
+      - name: Установка Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      # Ввод передаётся через env, а не подстановкой ${{ }} в текст: иначе данные склеятся с кодом.
+      # Значение читается строго как МАЖОР.МИНОР.ПАТЧ — молчаливое додумывание дало бы неверный тег.
+      - name: Разбор и повышение версии
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          current=$(head -n 1 VERSION | tr -d ' \011\015\012')
+          printf '%s\n' "$current" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+              || { echo "VERSION не разбирается как МАЖОР.МИНОР.ПАТЧ: прочитано «$current»" >&2; exit 1; }
+          major=${current%%.*}; rest=${current#*.}; minor=${rest%%.*}; patch=${rest#*.}
+          case "$BUMP" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+          esac
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "next=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
+          echo "$current -> $major.$minor.$patch"
+
+      # Гейт GIT-020: новая версия не пишется поверх незафиксированной работы в VERSION.
+      - name: Гейт незакоммиченных правок VERSION
+        run: |
+          pending=$(git status --porcelain -- VERSION)
+          [ -z "$pending" ] || { echo "в VERSION есть незакоммиченные правки:" >&2
+                                 echo "$pending" >&2; exit 1; }
+
+      - name: Запись версии, коммит и тег
+        env:
+          CURRENT: ${{ steps.version.outputs.current }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          printf '%s\n' "$NEXT" > VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "Релиз v$NEXT" -m "Версия повышена: $CURRENT -> $NEXT."
+          git tag -a "v$NEXT" -m "v$NEXT"
+          git push origin HEAD
+          git push origin "v$NEXT"
+
+      # Бинарники под платформы с версией, вкомпилированной линковщиком, и контрольные суммы.
+      - name: Сборка бинарников и контрольных сумм
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          ver="v$NEXT"
+          mkdir -p dist
+          for os in linux darwin windows; do
+            for arch in amd64 arm64; do
+              ext=""; [ "$os" = windows ] && ext=".exe"
+              out="dist/struct-linter-$ver-$os-$arch$ext"
+              CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
+                -ldflags "-s -w -X main.version=$ver" -o "$out" ./cmd/struct-linter
+            done
+          done
+          ( cd dist && shasum -a 256 struct-linter-* > SHA256SUMS )
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          gh release create "v$NEXT" dist/* \
+            --title "struct-linter v$NEXT" \
+            --generate-notes
+
+      - name: Настройка QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Настройка Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Логин в GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Расчёт имени образа
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          image=$(printf '%s\n' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          echo "ref=ghcr.io/$image" >> "$GITHUB_OUTPUT"
+
+      # Версионированный образ релиза плюс latest и мажор.минор — из того же VERSION и Dockerfile.
+      - name: Сборка и публикация образа
+        uses: docker/build-push-action@v6
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        with:
+          context: .
+          file: docker/struct-linter/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VERSION=v${{ steps.version.outputs.next }}
+          tags: |
+            ${{ steps.image.outputs.ref }}:v${{ steps.version.outputs.next }}
+            ${{ steps.image.outputs.ref }}:latest
